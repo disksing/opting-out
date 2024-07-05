@@ -1,0 +1,314 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN" style="height: 100%">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/4.5.3/css/bootstrap.min.css" rel="stylesheet">
+  <title>躺平计算器</title>
+</head>
+
+<body style="height: 100%">
+  <div class="container" id="app" style="min-height: 100%;">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light" style="justify-content: center">
+      <a class="navbar-brand" style="font-size: 2em;" href="#">躺平计算器</a>
+    </nav>
+    <div class="row mx-0 mt-3" style="padding: 20px; padding-bottom: 100px;">
+      <form class="col-12">
+        <div class="form-group row">
+          <label class="col-sm-6 col-form-label">你的年龄</label>
+          <div class="col-sm-6 input-group">
+            <input type="number" min="18" class="form-control" v-model.number="age" style="text-align: right;" />
+            <div class="input-group-append">
+              <span class="input-group-text">岁</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group row">
+          <label class="col-sm-6 col-form-label">你的资产有（包括房屋、负债等折算金额，可以是负数）</label>
+          <div class="col-sm-6 input-group">
+            <input type="number" class="form-control" v-model.number="money" style="text-align: right;" />
+            <div class="input-group-append">
+              <span class="input-group-text">万元</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group row" v-show="showDebtsInterests">
+          <label class="col-sm-6 col-form-label">负债年利率</label>
+          <div class="col-sm-6 input-group">
+            <input type="number" min="0" class="form-control" v-model.number="debtsYearlyInterest"
+              style="text-align: right;" />
+            <div class="input-group-append">
+              <span class="input-group-text">%</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group row">
+          <label class="col-sm-6 col-form-label">计划年度花费</label>
+          <div class="col-sm-6 input-group">
+            <input type="number" min="0" class="form-control" v-model.number="yearlyCost" style="text-align: right;" />
+            <div class="input-group-append">
+              <span class="input-group-text">万元</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group row">
+          <label class="col-sm-6 col-form-label">投资年收益率（银行利息、股票投资等）</label>
+          <div class="col-sm-6 input-group">
+            <input type="number" class="form-control" v-model.number="yearlyInterest" style="text-align: right;" />
+            <div class="input-group-append">
+              <span class="input-group-text">%</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group row">
+          <label class="col-sm-6 col-form-label">准备活到</label>
+          <div class="col-sm-6 input-group">
+            <input type="number" min="18" max="150" class="form-control" v-model.number="dieAge"
+              style="text-align: right;" />
+            <div class="input-group-append">
+              <span class="input-group-text">岁</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group row">
+          <label class="col-sm-6 col-form-label">计划留下遗产</label>
+          <div class="col-sm-6 input-group">
+            <input type="number" class="form-control" v-model.number="inheritance" style="text-align: right;" />
+            <div class="input-group-append">
+              <span class="input-group-text">万元</span>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <div class="col-12">
+        <hr />
+      </div>
+
+      <form class="col-12">
+        <div class="form-group row">
+          <label class="col-sm-6 col-form-label">从 <span class="hltext">{{ startAge }}</span> 岁开始躺平</label>
+          <div class="col-sm-6 input-group">
+            <input type="range" v-bind:min="age" v-bind:max="dieAge" v-model="startAge" style="width: 100%">
+          </div>
+        </div>
+      </form>
+
+      <div v-html="result"></div>
+
+    </div>
+  </div>
+
+  <footer style="margin-top:-60px; width: 100%; line-height: 30px; background-color: #f5f5f5; text-align: center;">
+    <div class="container">
+      <a class="text-muted" href="https://github.com/disksing/lying-flat-calculator">躺平计算器@GitHub</a>
+      <br />
+      <a class="text-muted" href="https://x.com/disksing">by @disksing</span>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/4.5.3/js/bootstrap.min.js"></script>
+
+  <script>
+    var app = new Vue({
+      el: "#app",
+      data: {
+        age: 35,
+        money: 0,
+        debtsYearlyInterest: 4.0,
+        yearlyCost: 20,
+        yearlyInterest: 2.5,
+        dieAge: 80,
+        inheritance: 0,
+        startAge: 60,
+      },
+      methods: {
+        calc: function () {
+          var res = {};
+          const self = this;
+          var checkIncome = function (x) {
+            var res = { income: x, totalIncome: 0, totalInterestIncome: 0, totalDeptInterest: 0, totalInterestIncome2: 0 };
+            var m = self.money;
+            for (var y = self.age; y <= self.startAge; y++) {
+              // income
+              if (y < self.dieAge) {
+                m += x;
+                res.totalIncome += x;
+                if (self.money < 0 && m >= 0) {
+                  res.nodebtYear = y;
+                }
+              }
+
+              if (y < self.startAge) {
+                // cost
+                m -= self.yearlyCost;
+                // interests
+                if (m >= 0) {
+                  var interest = m * self.yearlyInterest / 100;
+                  m += interest;
+                  res.totalInterestIncome += interest;
+                } else {
+                  var interest = m * self.debtsYearlyInterest / 100;
+                  m += interest;
+                  res.totalDeptInterest -= interest;
+                }
+              }
+            }
+            res.maxMoney = m;
+            for (var y = self.startAge; y < self.dieAge; y++) {
+              m -= self.yearlyCost;
+              if (m > 0) {
+                var interest = m * self.yearlyInterest / 100;
+                m += interest;
+                res.totalInterestIncome2 += interest;
+              }
+              if (m < self.inheritance) {
+                return { ok: false };
+              }
+            }
+            res.inheritance = m;
+            res.ok = m >= self.inheritance;
+            return res;
+          };
+
+          var noIncome = checkIncome(0);
+          if (noIncome.ok) {
+            return noIncome;
+          }
+
+          var income = search(0, 1000000, (x) => {
+            return checkIncome(x).ok;
+          });
+
+          return checkIncome(income);
+        },
+      },
+      computed: {
+        showDebtsInterests() {
+          return this.money < 0;
+        },
+        result() {
+          if (this.age < 18) {
+            return errtext("不支持未成年人躺平");
+          }
+          if (this.yearlyCost < 0) {
+            return errtext("年度花费不能为负数");
+          }
+          if (this.yearlyInterest < 0) {
+            return errtext("年度收益率不能为负数");
+          }
+          if (this.debtsYearlyInterest < 0) {
+            return errtext("负债年利率不能为负数");
+          }
+          if (this.dieAge <= this.age) {
+            return errtext("你已经永远躺平了");
+          }
+          if (this.dieAge > 150) {
+            return errtext("目前人类科技无法支持你躺平这么久");
+          }
+          if (this.inheritance < 0) {
+            return errtext("遗产不能为负数");
+          }
+          if (this.startAge < this.age || this.startAge > this.dieAge) {
+            return errtext("开始躺平年龄不合法");
+          }
+          var res = this.calc();
+          if (!res.ok) {
+            return errtext("很遗憾，你无法躺平");
+          }
+          var r = "<div class='alert alert-success'>";
+          if (this.startAge == this.age) {
+            if (res.income > 0) {
+              r += "想要" + hltext("立刻开始躺平") + "，"
+                + "你需要马上获得" + moneytext(res.income) + "，";
+              if (res.nodebtYear) {
+                r += "偿还负债后，";
+              }
+              r += "以总资产" + moneytext(res.maxMoney) + "开始躺平。";
+            } else {
+              r += "你可以" + hltext("直接躺平") + "。";
+            }
+          } else {
+            if (this.startAge == this.dieAge) {
+              r += "你选择了" + hltext("奋斗终身") + "，"
+              if (this.inheritance > 0) {
+                r += "为了留下" + moneytext(this.inheritance) + "遗产，"
+              }
+            } else {
+              r += "想要从" + hltext(this.startAge) + "岁开始躺平，"
+            }
+            r += "你需要从现在开始每年获得收入" + moneytext(res.income) + "直到" + yeartext(this.startAge - this.age) + "，"
+              + "共持续" + hltext(this.startAge - this.age) + "年。"
+              + "总计获得收入" + moneytext(res.totalIncome + res.totalInterestIncome) + "，"
+              + "其中包含投资收益" + moneytext(res.totalInterestIncome) + "。"
+            if (res.nodebtYear) {
+              r += "你将在" + yeartext(res.nodebtYear - this.age) + "还清负债，"
+                + "偿还负债总计" + moneytext(-this.money + res.totalDeptInterest) + "，其中包含利息" + moneytext(res.totalDeptInterest) + "。";
+            }
+            if (this.startAge < this.dieAge) {
+              r += "<br />" + "你将以总资产" + moneytext(res.maxMoney) + "从" + yeartext(this.startAge - this.age) + "开始躺平。";
+            } else {
+              r += "</div>";
+              return r;
+            }
+          }
+
+          r += "<br />从" + yeartext(this.startAge - this.age) + "开始，你的躺平生活将持续" + hltext(this.dieAge - this.startAge) + "年。"
+            + "期间共获得投资收益" + moneytext(res.totalInterestIncome2) + "。"
+            + "<br />你在" + yeartext(this.dieAge - this.age) + "去世，留下" + moneytext(res.inheritance) + "遗产。";
+
+          r += "</div>";
+          return r;
+        },
+      }
+    },
+    );
+
+    function search(min, max, f) {
+      while (min < max) {
+        var h = (min + max) / 2;
+        if (Math.abs(h - min) <= 0.001 || Math.abs(h - max) <= 0.001) {
+          return max;
+        }
+        if (!f(h)) {
+          min = h + 0.001;
+        } else {
+          max = h;
+        }
+      }
+      return max;
+    }
+
+    function errtext(x) {
+      return "<div class='alert alert-danger'>" + x + "</div>"
+    }
+
+    function hltext(x) {
+      return "<span class='hltext'>" + x + "</span>";
+    }
+
+    function agetext(x) {
+      return hltext(x + "岁");
+    }
+
+    function moneytext(x) {
+      return hltext(x.toFixed(2) + "万元");
+    }
+
+    function yeartext(x) {
+      return hltext((new Date().getFullYear() + x) + "年");
+    }
+  </script>
+
+  <style>
+    .hltext {
+      font-size: 140%;
+      color: red;
+    }
+  </style>
+</body>
+
+</html>
